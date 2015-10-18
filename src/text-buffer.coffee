@@ -443,6 +443,25 @@ class TextBuffer
   getBaseName: ->
     @file?.getBaseName()
 
+  # Check if file has read-only attribute, ask to overwrite 
+  # 
+  # * `filePath` A {String} representing the file path
+  # * `saveOptions` Options passed on to saveAs method
+  fileReadOnlyCheck : (filePath, saveOptions) ->
+    fs.stat(filePath, ((err, stat) =>
+        if (not err and stat.mode & 146) is 0
+          if confirm("Would you like to overwrite the write protected file: #{filePath}?")
+            @makeFileWriteable(filePath, stat.mode)
+            @saveAs(filePath, saveOptions)
+      )
+    )
+
+  # make file under filePath writeable (remove read-only attribute)
+  # * `filePath` A {String} representing the file path
+  # * `mode` {int} contains the current file mode property
+  makeFileWriteable : (filePath, mode) ->
+    fs.chmod(filePath, mode | 146)
+
   ###
   Section: Reading Text
   ###
@@ -1301,6 +1320,7 @@ class TextBuffer
     catch error
       if backupFilePath?
         fs.writeFileSync(filePath, fs.readFileSync(backupFilePath))
+      @fileReadOnlyCheck(filePath, options)
       throw error
 
     @cachedDiskContents = @getText()
